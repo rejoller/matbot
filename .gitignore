@@ -1,0 +1,8 @@
+env/
+config.py
+conda/
+__pycache__/
+*.pyc
+*.pyo
+*.tmp
+.DS_Store
