@@ -2,14 +2,16 @@ from zoneinfo import ZoneInfo
 from aiogram import types, Router, F
 from icecream import ic
 from aiogram.filters import Command
-
+from fsm_users import Form
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from datetime import datetime
 from additional_functions import get_recent_history_until_negative
 from class_user import User
 from config import mongodb_client
-
+from aiogram.fsm.context import FSMContext
+from aiogram.filters import StateFilter
+import re
 
 main_router = Router()
 
@@ -51,17 +53,31 @@ async def handle_reset(message: Message):
 
 
 @main_router.message(Command('add_user'))
-async def handle_payment(message: Message):
-    user_id = message.from_user.id
-    name = message.from_user.first_name
-    new_user = User(user_id=user_id, name=name)
+async def handle_new_user(message: Message, state: FSMContext):
+    await message.answer(text='Введите cвоё имя')
+    await state.set_state(Form.waiting_for_name)
 
-    globals()[name] = new_user
 
-    print(f'Пользователь {name} создан с user_id: {user_id}')
-    await new_user.save_to_db()
+@main_router.message(StateFilter(Form.waiting_for_name))
+async def waiting_for_username(message: Message, state: FSMContext):
+   # if type(message.text) is str and not message.text.isdigit():
+    number_pattern = "\d"
+    if not re.match(number_pattern, message.text):
+        
+        name = message.text
+        user_id = message.from_user.id
+        new_user = User(user_id=user_id, name=name)
+        await message.answer(f'Пользователь {name} создан с user_id: {user_id}')
+        await new_user.save_to_db(users_collection)
+        await state.clear()
+    else:
+        await message.answer(f'введите корректное значение')
 
-    await message.answer(f'Пользователь {name} создан с user_id: {user_id}')
+
+    
+    
+
+    
 
 
 @main_router.message(Command('statistic'))

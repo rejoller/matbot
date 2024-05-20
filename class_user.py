@@ -1,5 +1,9 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from config import mongodb_client
+
+db = mongodb_client.mat_db
+users_collection = db.users
 
 
 class User:
