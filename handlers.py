@@ -1,33 +1,34 @@
 from zoneinfo import ZoneInfo
-from aiogram import types, Router, F, Bot
-from aiogram.fsm.context import FSMContext
-from aiogram.filters import Command, CommandStart, StateFilter
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
+from aiogram import types, Router, F
+from icecream import ic
+from aiogram.filters import Command
+
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from datetime import datetime
 from config import mongodb_client
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+
 
 
 
 main_router = Router()
-db = mongodb_client.mat_db  # Название вашей базы данных
+
+
+
+db = mongodb_client.mat_db 
 users_collection = db.users
-
-
 
 
 @main_router.message(F.photo)
 async def get_photo_id(message: Message):
     await message.reply(text=f"{message.photo[-1].file_id}")
 
+
 @main_router.message(F.animation)
 async def echo_gif(message: Message):
     file_id = message.animation.file_id
     print(file_id)
-    await message.answer(text = file_id)
-
+    await message.answer(text=file_id)
 
 
 class User:
@@ -46,14 +47,14 @@ class User:
     async def update_balance(self, amount, users_collection):
         self.balance += amount
         self.history.append({"amount": amount, "date": datetime.now().astimezone(
-            ZoneInfo("Asia/Krasnoyarsk")).strftime("%Y-%m-%d %H:%M:%S")})
+            ZoneInfo("Asia/Krasnoyarsk")).strftime("%d.%m.%Y %H:%M")})
         await users_collection.update_one(
             {"user_id": self.user_id},
             {"$set": {"balance": self.balance}, "$push": {"history": {"amount": amount, "date": datetime.now().astimezone(
-                ZoneInfo("Asia/Krasnoyarsk")).strftime("%Y-%m-%d %H:%M:%S")}}},
+                ZoneInfo("Asia/Krasnoyarsk")).strftime("%d.%m.%Y %H:%M")}}},
             upsert=True
         )
-    
+
     async def save_to_db(self, users_collection):
         await users_collection.update_one(
             {"user_id": self.user_id},
@@ -61,11 +62,21 @@ class User:
             upsert=True
         )
 
-
-
     async def reset_balance(self, users_collection):
+        current_balance = self.balance
         self.balance = 0
-        await self.save_to_db(users_collection)
+        # Добавляем запись в историю с отрицательным значением текущего баланса
+        self.history.append({
+            "amount": -current_balance,
+            "date": datetime.now().astimezone(ZoneInfo("Asia/Krasnoyarsk")).strftime("%Y-%m-%d %H:%M:%S")
+        })
+        # Сохраняем изменения в базу данных
+        await users_collection.update_one(
+            {"user_id": self.user_id},
+            {"$set": {"balance": self.balance}, "$push": {"history": {"amount": -current_balance, "date": datetime.now().astimezone(
+                ZoneInfo("Asia/Krasnoyarsk")).strftime("%d.%m.%Y %H:%M")}}},
+            upsert=True
+        )
 
 
 
@@ -73,15 +84,12 @@ tanya = User(user_id=374056328, name="Таня")
 masha = User(user_id=402748716, name="Маша")
 vlad = User(user_id=964635576, name="Влад")
 
+
 async def initialize_users():
-   # await tanya.save_to_db()
+
     await tanya.load_from_db(users_collection)
     await masha.load_from_db(users_collection)
     await vlad.load_from_db(users_collection)
-
-
-
-
 
 
 @main_router.message(Command('reset'))
@@ -92,19 +100,14 @@ async def handle_reset(message: Message):
     await message.answer('сброшено')
 
 
-
-
-
 @main_router.message(Command('add_user'))
 async def handle_payment(message: Message):
     user_id = message.from_user.id
     name = message.from_user.first_name
     new_user = User(user_id=user_id, name=name)
-    
-    # Присваиваем переменной имя пользователя
+
     globals()[name] = new_user
-    
-    # Для проверки можно вывести информацию о новом пользователе
+
     print(f'Пользователь {name} создан с user_id: {user_id}')
     await new_user.save_to_db()
 
@@ -112,101 +115,105 @@ async def handle_payment(message: Message):
 
 
 
+
+
+
+
+async def get_recent_history_until_negative(history):
+    recent_history = []
+    
+    for record in reversed(history):
+        recent_history.append(record)
+        if record['amount'] < 0:
+            break
+    return recent_history
+
+# Предполагаем, что вы находитесь внутри асинхронной функции или окружения
+
+
+
+
+
 @main_router.message(Command('statistic'))
 async def get_statistic(message: Message):
-    
-    
-
-
 
     tanya_data = await users_collection.find_one({"user_id": 374056328})
+    
     masha_data = await users_collection.find_one({"user_id": 402748716})
-
+   
+    
     if not tanya_data or not masha_data:
         await message.answer("Не удалось найти информацию о пользователях.")
         return
-
-    # Получаем баланс обоих пользователей
     tanya_balance = tanya_data.get("balance", 0)
     masha_balance = masha_data.get("balance", 0)
+    
 
-    # Получаем историю начислений обоих пользователей
     tanya_history = tanya_data.get("history", [])
     masha_history = masha_data.get("history", [])
 
-    # Формируем сообщение с балансом и историей начислений
-    response_message = (
-        f"Баланс пользователей:\n"
-        f"Таня (ID: 374056328): {tanya_balance} руб.\n"
-        f"Маша (ID: 402748716): {masha_balance} руб.\n\n"
-        f"История начислений Тани:\n"
-    )
-    for record in tanya_history:
-        response_message += f"- {record['date']}: {record['amount']} руб.\n"
+    tanya_recent_history = await get_recent_history_until_negative(history=tanya_history)
+    masha_recent_history = await get_recent_history_until_negative(history=masha_history)
 
-    response_message += "\nИстория начислений Маши:\n"
-    for record in masha_history:
-        response_message += f"- {record['date']}: {record['amount']} руб.\n"
-    
-    # Отправляем сообщение
-    await message.answer(response_message)
+
+    response_message = (
+        f"<b>Статистика матюков</b>\n"
+        f"Таня: {tanya_balance} руб.\n"
+        f"Маша: {masha_balance} руб.\n\n"
+        f"<b>История штрафов Тани:</b>\n"
+    )
+    for record in reversed(tanya_recent_history):
+        response_message += f"{record['date']} - {record['amount']} руб.\n"
+
+    response_message += "\n<b>История штрафов Маши:</b>\n"
+    for record in reversed(masha_recent_history):
+        response_message += f"{record['date']} - {record['amount']} руб.\n"
+
+
+    await message.answer_photo(photo= 'AgACAgIAAxkBAAIBF2ZK_wFoWLYRnPoPcEFNpvLaVgURAAJT1zEb5tpZStW_sUqXiSnMAQADAgADeAADNQQ',
+                               caption=response_message, parse_mode="HTML")
 
 
 @main_router.message(Command('report'))
 async def handle_payment(message: Message):
     builder = InlineKeyboardBuilder()
-    
-    
+
     markup = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(
-                        text=f"Маша сматерилась", callback_data='Masha_mat')],
-                    [InlineKeyboardButton(
-                        text=f"Таня сматерилась", callback_data='Tanya_mat')]
-                ])
+        [InlineKeyboardButton(
+            text=f"Маша сматерилась", callback_data='Masha_mat')],
+        [InlineKeyboardButton(
+            text=f"Таня сматерилась", callback_data='Tanya_mat')]
+    ])
     builder.attach(InlineKeyboardBuilder.from_markup(markup))
-    #await message.answer(text = 'На кого будем жаловаться?', reply_markup=markup)
-    await message.answer_animation(animation='CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA', caption='На кого будем жаловаться?', reply_markup=markup, parse_mode="HTML" )
 
-
-
+    await message.answer_animation(animation='CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA', 
+                                   caption='На кого будем жаловаться?', reply_markup=markup, parse_mode="HTML")
 
 
 @main_router.callback_query(F.data.contains("Masha_mat"))
 async def handle_masha_mat(query: types.CallbackQuery):
-  
-   # db = mongodb_client.mat_db  # Название вашей базы данных
-    #users_collection = db.users
     amount = 10
     await masha.update_balance(amount, users_collection)
     masha_data = await users_collection.find_one({"user_id": 402748716})
     balance = masha_data.get('balance', 'Неизвестно')
 
-    # Формирование сообщения
+
     masha_message = f"<b>Мат зафиксирован!</b> \nШтрафы Маши: {balance} р."
-    
-    
+
     Balance: {masha_data['balance']}
-    print(f'mashadata: {masha_data}')
-    await query.message.edit_caption(animation = 'CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA', caption=masha_message, parse_mode='HTML')
+
+    await query.message.edit_caption(animation='CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA', 
+                                     caption=masha_message, parse_mode='HTML')
 
 
-
-
-    
 @main_router.callback_query(F.data.contains("Tanya_mat"))
 async def handle_masha_mat(query: types.CallbackQuery):
- 
-    #db = mongodb_client.mat_db  # Название вашей базы данных
-    #users_collection = db.users
     amount = 10
     await tanya.update_balance(amount, users_collection)
     tanya_data = await users_collection.find_one({"user_id": 374056328})
     balance = tanya_data.get('balance', 'Неизвестно')
-
-    # Формирование сообщения
     tanya_message = f"<b>Мат зафиксирован!</b> \nШтрафы Тани: {balance} р."
-    
-    
     Balance: {tanya_data['balance']}
-    print(f'tanya_data: {tanya_data}')
-    await query.message.edit_caption(animation = 'CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA', caption=tanya_message, parse_mode='HTML')
+
+    await query.message.edit_caption(animation='CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA',
+                                     caption=tanya_message, parse_mode='HTML')
