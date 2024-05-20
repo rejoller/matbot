@@ -54,12 +54,20 @@ class User:
             upsert=True
         )
     
-    async def save_to_db(self):
+    async def save_to_db(self, users_collection):
         await users_collection.update_one(
             {"user_id": self.user_id},
             {"$set": {"name": self.name, "balance": self.balance, "history": self.history}},
             upsert=True
         )
+
+
+
+    async def reset_balance(self, users_collection):
+        self.balance = 0
+        await self.save_to_db(users_collection)
+
+
 
 tanya = User(user_id=374056328, name="Таня")
 masha = User(user_id=402748716, name="Маша")
@@ -71,6 +79,17 @@ async def initialize_users():
     await masha.load_from_db(users_collection)
     await vlad.load_from_db(users_collection)
 
+
+
+
+
+
+@main_router.message(Command('reset'))
+async def handle_reset(message: Message):
+
+    await masha.reset_balance(users_collection)
+    await tanya.reset_balance(users_collection)
+    await message.answer('сброшено')
 
 
 
@@ -155,8 +174,8 @@ async def handle_payment(message: Message):
 @main_router.callback_query(F.data.contains("Masha_mat"))
 async def handle_masha_mat(query: types.CallbackQuery):
   
-    db = mongodb_client.mat_db  # Название вашей базы данных
-    users_collection = db.users
+   # db = mongodb_client.mat_db  # Название вашей базы данных
+    #users_collection = db.users
     amount = 10
     await masha.update_balance(amount, users_collection)
     masha_data = await users_collection.find_one({"user_id": 402748716})
@@ -177,8 +196,8 @@ async def handle_masha_mat(query: types.CallbackQuery):
 @main_router.callback_query(F.data.contains("Tanya_mat"))
 async def handle_masha_mat(query: types.CallbackQuery):
  
-    db = mongodb_client.mat_db  # Название вашей базы данных
-    users_collection = db.users
+    #db = mongodb_client.mat_db  # Название вашей базы данных
+    #users_collection = db.users
     amount = 10
     await tanya.update_balance(amount, users_collection)
     tanya_data = await users_collection.find_one({"user_id": 374056328})
@@ -189,5 +208,5 @@ async def handle_masha_mat(query: types.CallbackQuery):
     
     
     Balance: {tanya_data['balance']}
-    print(f'mashadata: {tanya_data}')
+    print(f'tanya_data: {tanya_data}')
     await query.message.edit_caption(animation = 'CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA', caption=tanya_message, parse_mode='HTML')
