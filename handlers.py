@@ -12,7 +12,7 @@ from config import mongodb_client
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 import re
-
+from content import report_animation, statistic_photo
 main_router = Router()
 
 
@@ -60,44 +60,45 @@ async def handle_new_user(message: Message, state: FSMContext):
 
 @main_router.message(StateFilter(Form.waiting_for_name))
 async def waiting_for_username(message: Message, state: FSMContext):
-   # if type(message.text) is str and not message.text.isdigit():
-    number_pattern = "\d"
-    if not re.match(number_pattern, message.text):
-        
+    number_pattern = "[а-яА-Я]+"
+    if re.fullmatch(number_pattern, message.text):
+
         name = message.text
         user_id = message.from_user.id
         new_user = User(user_id=user_id, name=name)
-        await message.answer(f'Пользователь {name} создан с user_id: {user_id}')
-        await new_user.save_to_db(users_collection)
-        await state.clear()
+
+        if await users_collection.find_one({"name": name}):
+            await message.answer(f'Имя {name} занято, выберите другое')
+        else:
+            await message.answer(f'Пользователь {name} создан!')
+            await new_user.save_to_db(users_collection)
+            await state.clear()
     else:
         await message.answer(f'введите корректное значение')
-
-
-    
-    
-
-    
 
 
 @main_router.message(Command('statistic'))
 async def get_statistic(message: Message):
 
-    tanya_data = await users_collection.find_one({"user_id": 374056328})
+   
+    users_balances = []
+    users_histories = []
+    usernames = []
 
-    masha_data = await users_collection.find_one({"user_id": 402748716})
 
-    if not tanya_data or not masha_data:
-        await message.answer("Не удалось найти информацию о пользователях.")
-        return
-    tanya_balance = tanya_data.get("balance", 0)
-    masha_balance = masha_data.get("balance", 0)
+
+    for i in db.users.find():
+        users_balances.append(i['balance'])
+    for i in db.users.find():
+        users_histories.append(i['history'])
+    
+
 
     tanya_history = tanya_data.get("history", [])
-    masha_history = masha_data.get("history", [])
+ 
 
     tanya_recent_history = await get_recent_history_until_negative(history=tanya_history)
-    masha_recent_history = await get_recent_history_until_negative(history=masha_history)
+    
 
     response_message = (
         f"<b>Статистика матюков</b>\n"
@@ -112,7 +113,7 @@ async def get_statistic(message: Message):
     for record in reversed(masha_recent_history):
         response_message += f"{record['date']} - {record['amount']} руб.\n"
 
-    await message.answer_photo(photo='AgACAgIAAxkBAAIBF2ZK_wFoWLYRnPoPcEFNpvLaVgURAAJT1zEb5tpZStW_sUqXiSnMAQADAgADeAADNQQ',
+    await message.answer_photo(photo=statistic_photo,
                                caption=response_message, parse_mode="HTML")
 
 
@@ -128,7 +129,7 @@ async def handle_payment(message: Message):
     ])
     builder.attach(InlineKeyboardBuilder.from_markup(markup))
 
-    await message.answer_animation(animation='CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA',
+    await message.answer_animation(animation=report_animation,
                                    caption='На кого будем жаловаться?', reply_markup=markup, parse_mode="HTML")
 
 
@@ -143,7 +144,7 @@ async def handle_masha_mat(query: types.CallbackQuery):
 
     Balance: {masha_data['balance']}
 
-    await query.message.edit_caption(animation='CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA',
+    await query.message.edit_caption(animation=report_animation,
                                      caption=masha_message, parse_mode='HTML')
 
 
@@ -156,5 +157,5 @@ async def handle_masha_mat(query: types.CallbackQuery):
     tanya_message = f"<b>Мат зафиксирован!</b> \nШтрафы Тани: {balance} р."
     Balance: {tanya_data['balance']}
 
-    await query.message.edit_caption(animation='CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA',
+    await query.message.edit_caption(animation=report_animation,
                                      caption=tanya_message, parse_mode='HTML')

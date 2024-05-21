@@ -1,0 +1,2 @@
+statistic_photo = 'AgACAgIAAxkBAAIBF2ZK_wFoWLYRnPoPcEFNpvLaVgURAAJT1zEb5tpZStW_sUqXiSnMAQADAgADeAADNQQ'
+report_animation = 'CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA'
