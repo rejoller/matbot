@@ -55,45 +55,73 @@ async def handle_reset(message: Message):
 async def get_statistic(message: Message):
     print('в статистике')
     
+    user_info = []
+
+
     users_balances = []
     users_histories = []
     usernames = []
     recent_histories = []
     
-
+    '''
     async for i in db.users.find():
         usernames.append(i['name'])
     async for i in db.users.find():
         users_balances.append(i['balance'])
     async for i in db.users.find():
         users_histories.append(i['history'])
+    '''
+
+    async for user_id, user_data in db.users.items():
+        user_info ={
+            'tg_id':  user_id
+
+
+
+
+
+
+
+
+
+
+        }
+        
+        user_info.append(i)
+
+
+    ic(user_info)
     
 
 
    
  
-
+    '''
     recent_histories = await get_recent_history_until_negative(users_histories[0])
     
 
     msg_content = []
+    response_message = []
 
     for i in range(0, len(usernames)):
         msg_content.append({'balance': users_balances[i], 'name': usernames[i]})
-    
+        response_message += msg_content
+        #response_message += msg_content[1]
 
     for i in range(0, len(recent_histories)):
         msg_content.append({'penalty': recent_histories[i]})
+        response_message += msg_content
 
-    response_message = msg_content
+
+    
     ic(response_message)
-    ic(str(response_message))
+
 
     #await message.answer_photo(photo=statistic_photo,
                              #  caption=response_message, parse_mode="HTML")
-    await message.answer(text=str(response_message), parse_mode="HTML")
+    await message.answer(text=response_message, parse_mode="HTML")
 
-
+    '''
 
 
 
