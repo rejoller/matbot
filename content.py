@@ -1,2 +1,2 @@
-statistic_photo = 'AgACAgIAAxkBAAIBF2ZK_wFoWLYRnPoPcEFNpvLaVgURAAJT1zEb5tpZStW_sUqXiSnMAQADAgADeAADNQQ'
-report_animation = 'CgACAgIAAxkBAANVZkcSILbeKabcnkR4YR4j2Jl8BuoAAoFEAAL0uzlKcwwmpVIVQWU1BA'
+statistic_photo = 'AgACAgIAAxkBAAI_1GZO-JfQCJYNfsXwtmyTWTrYF8x7AAJT1zEb5tpZSgTdtaCsQyPtAQADAgADeAADNQQ'
+report_animation = 'CgACAgIAAxkBAAI_0mZO-IcAAUXRUz7EmI3Kp_8JCoJS1QACgUQAAvS7OUoaSSiuo_finzUE'

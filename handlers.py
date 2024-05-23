@@ -46,20 +46,95 @@ async def initialize_users():
 
 @main_router.message(Command('reset'))
 async def handle_reset(message: Message):
-
+    print('в ресет ')
     await masha.reset_balance(users_collection)
     await tanya.reset_balance(users_collection)
     await message.answer('сброшено')
 
+@main_router.message(Command('statistic'))
+async def get_statistic(message: Message):
+    print('в статистике')
+    
+    users_balances = []
+    users_histories = []
+    usernames = []
+    recent_histories = []
+    
+
+    async for i in db.users.find():
+        usernames.append(i['name'])
+    async for i in db.users.find():
+        users_balances.append(i['balance'])
+    async for i in db.users.find():
+        users_histories.append(i['history'])
+    
+
+
+   
+ 
+
+    recent_histories = await get_recent_history_until_negative(users_histories[0])
+    
+
+    msg_content = []
+
+    for i in range(0, len(usernames)):
+        msg_content.append({'balance': users_balances[i], 'name': usernames[i]})
+    
+
+    for i in range(0, len(recent_histories)):
+        msg_content.append({'penalty': recent_histories[i]})
+
+    response_message = msg_content
+    ic(response_message)
+    ic(str(response_message))
+
+    #await message.answer_photo(photo=statistic_photo,
+                             #  caption=response_message, parse_mode="HTML")
+    await message.answer(text=str(response_message), parse_mode="HTML")
+
+
+
+
+
+
+
+
+
+
+
+    '''
+    response_message = (
+        f"<b>Статистика матюков</b>\n"
+        f"Таня: {tanya_balance} руб.\n"
+        f"Маша: {masha_balance} руб.\n\n"
+        f"<b>История штрафов Тани:</b>\n"
+    )
+    for record in reversed(tanya_recent_history):
+        response_message += f"{record['date']} - {record['amount']} руб.\n"
+
+    response_message += "\n<b>История штрафов Маши:</b>\n"
+    for record in reversed(masha_recent_history):
+        response_message += f"{record['date']} - {record['amount']} руб.\n"
+
+    await message.answer_photo(photo=statistic_photo,
+                               caption=response_message, parse_mode="HTML")
+    '''
+
+
 
 @main_router.message(Command('add_user'))
 async def handle_new_user(message: Message, state: FSMContext):
+    print('в адд юзер')
     await message.answer(text='Введите cвоё имя')
     await state.set_state(Form.waiting_for_name)
 
 
+
+
 @main_router.message(StateFilter(Form.waiting_for_name))
 async def waiting_for_username(message: Message, state: FSMContext):
+    print('в waiting_for_username')
     number_pattern = "[а-яА-Я]+"
     if re.fullmatch(number_pattern, message.text):
 
@@ -77,48 +152,12 @@ async def waiting_for_username(message: Message, state: FSMContext):
         await message.answer(f'введите корректное значение')
 
 
-@main_router.message(Command('statistic'))
-async def get_statistic(message: Message):
-
-   
-    users_balances = []
-    users_histories = []
-    usernames = []
-
-
-
-    for i in db.users.find():
-        users_balances.append(i['balance'])
-    for i in db.users.find():
-        users_histories.append(i['history'])
-    
-
-
-    tanya_history = tanya_data.get("history", [])
- 
-
-    tanya_recent_history = await get_recent_history_until_negative(history=tanya_history)
-    
-
-    response_message = (
-        f"<b>Статистика матюков</b>\n"
-        f"Таня: {tanya_balance} руб.\n"
-        f"Маша: {masha_balance} руб.\n\n"
-        f"<b>История штрафов Тани:</b>\n"
-    )
-    for record in reversed(tanya_recent_history):
-        response_message += f"{record['date']} - {record['amount']} руб.\n"
-
-    response_message += "\n<b>История штрафов Маши:</b>\n"
-    for record in reversed(masha_recent_history):
-        response_message += f"{record['date']} - {record['amount']} руб.\n"
-
-    await message.answer_photo(photo=statistic_photo,
-                               caption=response_message, parse_mode="HTML")
 
 
 @main_router.message(Command('report'))
-async def handle_payment(message: Message):
+async def handle_payment(message: Message, state: FSMContext):
+    print('в жалобе')
+    print(await state.get_state())
     builder = InlineKeyboardBuilder()
 
     markup = InlineKeyboardMarkup(inline_keyboard=[
@@ -135,6 +174,7 @@ async def handle_payment(message: Message):
 
 @main_router.callback_query(F.data.contains("Masha_mat"))
 async def handle_masha_mat(query: types.CallbackQuery):
+    print('в Маша мат')
     amount = 10
     await masha.update_balance(amount, users_collection)
     masha_data = await users_collection.find_one({"user_id": 402748716})
@@ -150,6 +190,7 @@ async def handle_masha_mat(query: types.CallbackQuery):
 
 @main_router.callback_query(F.data.contains("Tanya_mat"))
 async def handle_masha_mat(query: types.CallbackQuery):
+    print('в Таня мат')
     amount = 10
     await tanya.update_balance(amount, users_collection)
     tanya_data = await users_collection.find_one({"user_id": 374056328})
