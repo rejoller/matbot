@@ -7,7 +7,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from datetime import datetime
 from additional_functions import get_recent_history_until_negative
-from class_user import User
+from class_user import User, update_balance
 from config import mongodb_client
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
@@ -69,89 +69,7 @@ async def get_statistic(message: Message):
             response_text += f"баланс {response['balance']}\n"
             response_text += f"история {await get_recent_history_until_negative(response['history'])}\n"
             
-            
-        
 
-
-
-
-
-        
-
-    users_balances = []
-    users_histories = []
-    usernames = []
-    
-    
-    '''
-    async for i in db.users.find():
-        usernames.append(i['name'])
-    async for i in db.users.find():
-        users_balances.append(i['balance'])
-    async for i in db.users.find():
-        users_histories.append(i['history'])
-    '''
-
-    
- 
-
-    
-
-
-   
- 
-    '''
-    recent_histories = await get_recent_history_until_negative(users_histories[0])
-    
-
-    msg_content = []
-    response_message = []
-
-    for i in range(0, len(usernames)):
-        msg_content.append({'balance': users_balances[i], 'name': usernames[i]})
-        response_message += msg_content
-        #response_message += msg_content[1]
-
-    for i in range(0, len(recent_histories)):
-        msg_content.append({'penalty': recent_histories[i]})
-        response_message += msg_content
-
-
-    
-    ic(response_message)
-
-
-    #await message.answer_photo(photo=statistic_photo,
-                             #  caption=response_message, parse_mode="HTML")
-    await message.answer(text=response_message, parse_mode="HTML")
-
-    '''
-
-
-
-
-
-
-
-
-
-    '''
-    response_message = (
-        f"<b>Статистика матюков</b>\n"
-        f"Таня: {tanya_balance} руб.\n"
-        f"Маша: {masha_balance} руб.\n\n"
-        f"<b>История штрафов Тани:</b>\n"
-    )
-    for record in reversed(tanya_recent_history):
-        response_message += f"{record['date']} - {record['amount']} руб.\n"
-
-    response_message += "\n<b>История штрафов Маши:</b>\n"
-    for record in reversed(masha_recent_history):
-        response_message += f"{record['date']} - {record['amount']} руб.\n"
-
-    await message.answer_photo(photo=statistic_photo,
-                               caption=response_message, parse_mode="HTML")
-    '''
     await message.answer(response_text)
 
 
@@ -188,22 +106,27 @@ async def waiting_for_username(message: Message, state: FSMContext):
 
 @main_router.message(Command('report'))
 async def handle_payment(message: Message, state: FSMContext):
-    print('в жалобе')
-    print(await state.get_state())
+
     builder = InlineKeyboardBuilder()
+    bad_users = await get_users_info()
+    for i, bad_users in  enumerate(bad_users, 0):
+        name = bad_users['name']
+        tg_id = bad_users['tg_id']
+        balance = bad_users['balance']
 
-    markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text=f"Маша сматерилась", callback_data='Masha_mat')],
-        [InlineKeyboardButton(
-            text=f"Таня сматерилась", callback_data='Tanya_mat')]
-    ])
-    builder.attach(InlineKeyboardBuilder.from_markup(markup))
 
+        
+        
+        builder.button(text=f'Пользователь {name} сматерился', callback_data=f'{tg_id}_mat')
+            
+
+        builder.adjust(1)
+        keyboard = builder.as_markup()
+        
     await message.answer_animation(animation=report_animation,
-                                   caption='На кого будем жаловаться?', reply_markup=markup, parse_mode="HTML")
+                                   caption='На кого будем жаловаться?', reply_markup=keyboard, parse_mode="HTML")
 
-
+'''
 @main_router.callback_query(F.data.contains("Masha_mat"))
 async def handle_masha_mat(query: types.CallbackQuery):
     print('в Маша мат')
@@ -219,16 +142,22 @@ async def handle_masha_mat(query: types.CallbackQuery):
     await query.message.edit_caption(animation=report_animation,
                                      caption=masha_message, parse_mode='HTML')
 
+'''
 
-@main_router.callback_query(F.data.contains("Tanya_mat"))
+@main_router.callback_query(F.data.contains(f"_mat"))
 async def handle_masha_mat(query: types.CallbackQuery):
-    print('в Таня мат')
+    print('в Маша мат')
+    tg_id = int(query.data.split('_')[0])
+    
+    
     amount = 10
-    await tanya.update_balance(amount, users_collection)
-    tanya_data = await users_collection.find_one({"user_id": 374056328})
-    balance = tanya_data.get('balance', 'Неизвестно')
-    tanya_message = f"<b>Мат зафиксирован!</b> \nШтрафы Тани: {balance} р."
-    Balance: {tanya_data['balance']}
+    await update_balance(amount, tg_id, balance)
+    user_data = await users_collection.find_one({"user_id": tg_id})
+    balance = user_data.get('balance', 'Неизвестно')
 
+    masha_message = f"<b>Мат зафиксирован!</b> \nШтрафы {balance} р."
+
+   
     await query.message.edit_caption(animation=report_animation,
-                                     caption=tanya_message, parse_mode='HTML')
+                                     caption=masha_message, parse_mode='HTML')
+

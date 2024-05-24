@@ -1,6 +1,9 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from config import mongodb_client
+from icecream import ic
+
+from mongo_connection import get_users_info
 
 db = mongodb_client.mat_db
 users_collection = db.users
@@ -19,16 +22,7 @@ class User:
             self.balance = user_data.get('balance', 0)
             self.history = user_data.get('history', [])
 
-    async def update_balance(self, amount, users_collection):
-        self.balance += amount
-        self.history.append({"amount": amount, "date": datetime.now().astimezone(
-            ZoneInfo("Asia/Krasnoyarsk")).strftime("%d.%m.%Y %H:%M")})
-        await users_collection.update_one(
-            {"user_id": self.user_id},
-            {"$set": {"balance": self.balance}, "$push": {"history": {"amount": amount, "date": datetime.now().astimezone(
-                ZoneInfo("Asia/Krasnoyarsk")).strftime("%d.%m.%Y %H:%M")}}},
-            upsert=True
-        )
+    
 
     async def save_to_db(self, users_collection):
         await users_collection.update_one(
@@ -49,6 +43,27 @@ class User:
         await users_collection.update_one(
             {"user_id": self.user_id},
             {"$set": {"balance": self.balance}, "$push": {"history": {"amount": -current_balance, "date": datetime.now().astimezone(
+                ZoneInfo("Asia/Krasnoyarsk")).strftime("%d.%m.%Y %H:%M")}}},
+            upsert=True
+        )
+
+
+async def get_current_balance(tg_id=None):
+        user_data = await users_collection.find_one({"user_id": tg_id})
+        ic(user_data)
+        current_balance = user_data['balance']
+        return current_balance
+
+
+
+async def update_balance(amount, tg_id, balance):
+        current_balance = await get_current_balance(tg_id)
+        
+        ic(current_balance)
+        
+        await users_collection.update_one(
+            {"user_id": tg_id},
+            {"$set": {"balance": current_balance+amount}, "$push": {"history": {"amount": amount, "date": datetime.now().astimezone(
                 ZoneInfo("Asia/Krasnoyarsk")).strftime("%d.%m.%Y %H:%M")}}},
             upsert=True
         )
