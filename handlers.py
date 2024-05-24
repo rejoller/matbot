@@ -13,6 +13,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 import re
 from content import report_animation, statistic_photo
+from mongo_connection import get_users_info
 main_router = Router()
 
 
@@ -54,14 +55,33 @@ async def handle_reset(message: Message):
 @main_router.message(Command('statistic'))
 async def get_statistic(message: Message):
     print('в статистике')
-    
-    user_info = []
+    recent_histories = []
+    user_all_data = []
+    response = await get_users_info()
+    response_text = ''
+    #recent_histories = await get_recent_history_until_negative(response[0]['history'])
+   # ic(recent_histories)
+    for i, response in enumerate(response, 0):
+            
+        
+            response_text += f"ID {response['tg_id']}\n"
+            response_text += f"имя {response['name']}\n"
+            response_text += f"баланс {response['balance']}\n"
+            response_text += f"история {await get_recent_history_until_negative(response['history'])}\n"
+            
+            
+        
 
+
+
+
+
+        
 
     users_balances = []
     users_histories = []
     usernames = []
-    recent_histories = []
+    
     
     '''
     async for i in db.users.find():
@@ -72,25 +92,9 @@ async def get_statistic(message: Message):
         users_histories.append(i['history'])
     '''
 
-    async for user_id, user_data in db.users.items():
-        user_info ={
-            'tg_id':  user_id
+    
+ 
 
-
-
-
-
-
-
-
-
-
-        }
-        
-        user_info.append(i)
-
-
-    ic(user_info)
     
 
 
@@ -148,7 +152,7 @@ async def get_statistic(message: Message):
     await message.answer_photo(photo=statistic_photo,
                                caption=response_message, parse_mode="HTML")
     '''
-
+    await message.answer(response_text)
 
 
 @main_router.message(Command('add_user'))
